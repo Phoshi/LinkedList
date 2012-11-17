@@ -3,8 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 
-namespace LinkedList {
-    class LinkedList<T> : IEnumerable<T> {
+namespace LinkedList{
+    public class LinkedList<T> : IEnumerable<T>{
         private LinkedListNode<T> _head = new LinkedListNode<T>();
         private readonly int _maxLength;
 
@@ -74,7 +74,7 @@ namespace LinkedList {
         /// <param name="position">The position to insert it at</param>
         public void Insert(T value, int position){
             if (IsFull){
-                throw new Exception("List is full!");
+                throw new ArgumentOutOfRangeException("List is full!");
             }
             if (position < 0){
                 throw new ArgumentOutOfRangeException("Cannot insert item outside of range.");
@@ -143,15 +143,19 @@ namespace LinkedList {
         /// <param name="value">The value to find</param>
         /// <returns>The index of this, or -1 for not found</returns>
         public int GetIndexOf(T value){
+            if (IsEmpty){
+                return -1;
+            }
             var searchIndex = 0;
             var searchNode = HeadNode;
 
-            while (!searchNode.Item.Equals(value)) {
-                if (searchNode.IsEndNode){
-                    throw new ValueNotFoundException("No such value in list!");
-                }
+            while (!searchNode.Item.Equals(value)){
                 searchNode = searchNode.Next;
                 searchIndex++;
+
+                if (searchNode.IsEndNode){
+                    return -1;
+                }
             }
             return searchIndex;
         }
@@ -162,13 +166,7 @@ namespace LinkedList {
         /// <param name="value">The item</param>
         /// <returns>Whether the list contains the item</returns>
         public bool Contains(T value){
-            try{
-                GetIndexOf(value);
-                return true;
-            }
-            catch(ValueNotFoundException){
-                return false;
-            }
+            return GetIndexOf(value) != -1;
         }
 
         /// <summary>
@@ -184,9 +182,7 @@ namespace LinkedList {
         /// <param name="index">The index to retrieve</param>
         /// <returns>The item at that index</returns>
         public T this[int index]{
-            get { 
-                return GetNodeAt(index).Item;
-            }
+            get { return GetNodeAt(index).Item; }
         }
 
         /// <summary>
@@ -194,16 +190,16 @@ namespace LinkedList {
         /// </summary>
         /// <param name="index">The index to retrieve</param>
         /// <returns>The node</returns>
-        public LinkedListNode<T> GetNodeAt(int index){
+        private LinkedListNode<T> GetNodeAt(int index){
             var searchIndex = 0;
             var searchNode = HeadNode;
 
-            while (searchIndex < index) {
+            while (searchIndex < index){
                 searchNode = searchNode.Next;
                 searchIndex++;
             }
             return searchNode;
-        } 
+        }
 
         /// <summary>
         /// Returns the class's enumerator
@@ -231,13 +227,11 @@ namespace LinkedList {
     }
 
     [Serializable]
-    class ValueNotFoundException : Exception{
-
+    internal class ValueNotFoundException : Exception{
         public ValueNotFoundException(string message) : base(message){}
 
         public ValueNotFoundException(string message, Exception innerException) : base(message, innerException){}
 
         public ValueNotFoundException(SerializationInfo info, StreamingContext context) : base(info, context){}
-
     }
 }
