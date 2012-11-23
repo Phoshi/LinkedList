@@ -3,9 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 
-namespace LinkedList{
-    public class LinkedList<T> : IEnumerable<T>{
+namespace LinkedList {
+    public class LinkedList<T> : IEnumerable<T> {
         private LinkedListNode<T> _head = new LinkedListNode<T>();
+        private LinkedListNode<T> _tail = null; 
         private readonly int _maxLength;
 
         /// <summary>
@@ -15,6 +16,11 @@ namespace LinkedList{
             get { return _head; }
             set { _head = value; }
         }
+
+        private LinkedListNode<T> TailNode{
+            get { return _tail; }
+            set { _tail = value; }
+        } 
 
         /// <summary>
         /// Whether the list is empty
@@ -30,18 +36,14 @@ namespace LinkedList{
             get { return Length == MaxCapacity; }
         }
 
+        private int _length = 0;
+
         /// <summary>
         /// The current length of the list
         /// </summary>
         public int Length{
             get{
-                var length = 0;
-                var searchNode = HeadNode;
-                while (!searchNode.IsEndNode){
-                    searchNode = searchNode.Next;
-                    length++;
-                }
-                return length;
+                return _length;
             }
         }
 
@@ -80,18 +82,24 @@ namespace LinkedList{
                 throw new ArgumentOutOfRangeException("Cannot insert item outside of range.");
             }
             LinkedListNode<T> newNode;
-            if (position == 0){
+            if (position == 0) {
                 newNode = new LinkedListNode<T>(value, HeadNode);
                 HeadNode = newNode;
-                return;
+            }
+            else{
+                var searchNode = GetNodeAt(position);
+
+                var previousNode = searchNode.Previous;
+                newNode = new LinkedListNode<T>(value, searchNode);
+                previousNode.Next = newNode;
+                newNode.Previous = previousNode;
             }
 
-            var searchNode = GetNodeAt(position);
+            if (position==Length){
+                _tail = newNode;
+            }
 
-            var previousNode = searchNode.Previous;
-            newNode = new LinkedListNode<T>(value, searchNode);
-            previousNode.Next = newNode;
-            newNode.Previous = previousNode;
+            _length++;
         }
 
         /// <summary>
@@ -135,6 +143,8 @@ namespace LinkedList{
             var node = GetNodeAt(index);
             node.Previous.Next = node.Next;
             node.Next.Previous = node.Previous;
+
+            _length--;
         }
 
         /// <summary>
@@ -149,11 +159,11 @@ namespace LinkedList{
             var searchIndex = 0;
             var searchNode = HeadNode;
 
-            while (!searchNode.Item.Equals(value)){
+            while (!searchNode.Item.Equals(value)) {
                 searchNode = searchNode.Next;
                 searchIndex++;
 
-                if (searchNode.IsEndNode){
+                if (searchNode.IsEndNode) {
                     return -1;
                 }
             }
@@ -174,6 +184,8 @@ namespace LinkedList{
         /// </summary>
         public void Clear(){
             HeadNode = new LinkedListNode<T>();
+
+            _length = 0;
         }
 
         /// <summary>
@@ -182,7 +194,9 @@ namespace LinkedList{
         /// <param name="index">The index to retrieve</param>
         /// <returns>The item at that index</returns>
         public T this[int index]{
-            get { return GetNodeAt(index).Item; }
+            get { 
+                return GetNodeAt(index).Item;
+            }
         }
 
         /// <summary>
@@ -191,15 +205,27 @@ namespace LinkedList{
         /// <param name="index">The index to retrieve</param>
         /// <returns>The node</returns>
         private LinkedListNode<T> GetNodeAt(int index){
-            var searchIndex = 0;
-            var searchNode = HeadNode;
+            if (index < Length / 2){
+                var searchIndex = 0;
+                var searchNode = HeadNode;
 
-            while (searchIndex < index){
-                searchNode = searchNode.Next;
-                searchIndex++;
+                while (searchIndex < index){
+                    searchNode = searchNode.Next;
+                    searchIndex++;
+                }
+                return searchNode;
             }
-            return searchNode;
-        }
+            else{
+                var searchIndex = Length;
+                var searchNode = TailNode.Next;
+
+                while (searchIndex > index) {
+                    searchNode = searchNode.Previous;
+                    searchIndex--;
+                }
+                return searchNode;
+            }
+        } 
 
         /// <summary>
         /// Returns the class's enumerator
@@ -227,11 +253,13 @@ namespace LinkedList{
     }
 
     [Serializable]
-    internal class ValueNotFoundException : Exception{
+    class ValueNotFoundException : Exception{
+
         public ValueNotFoundException(string message) : base(message){}
 
         public ValueNotFoundException(string message, Exception innerException) : base(message, innerException){}
 
         public ValueNotFoundException(SerializationInfo info, StreamingContext context) : base(info, context){}
+
     }
 }
