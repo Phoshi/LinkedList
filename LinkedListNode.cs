@@ -45,6 +45,7 @@
         /// </summary>
         /// <returns></returns>
         public override string ToString(){
+            return Item.ToString();
             return Next == null ? "End" : string.Format("{0} -> {1}", Item, Next);
         }
     }
