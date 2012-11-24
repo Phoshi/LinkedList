@@ -4,10 +4,13 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 
 namespace LinkedList {
-    public class LinkedList<T> : IEnumerable<T> {
+    public class LinkedList<T> : IEnumerable<T>{
         private LinkedListNode<T> _head = new LinkedListNode<T>();
-        private LinkedListNode<T> _tail = null; 
+        private LinkedListNode<T> _tail; 
         private readonly int _maxLength;
+
+        private const int SKIPLIST_DENSITY = 250;
+        private LinkedList<LinkedListNode<T>> _skipList; 
 
         /// <summary>
         /// The first element node of the list
@@ -20,7 +23,12 @@ namespace LinkedList {
         private LinkedListNode<T> TailNode{
             get { return _tail; }
             set { _tail = value; }
-        } 
+        }
+
+        /// <summary>
+        /// Whether the list uses a SkipList to significantly improve fetch times at the cost of insertion and removal times.
+        /// </summary>
+        public bool UseSkiplist { get; internal set; }
 
         /// <summary>
         /// Whether the list is empty
@@ -36,7 +44,7 @@ namespace LinkedList {
             get { return Length == MaxCapacity; }
         }
 
-        private int _length = 0;
+        private int _length;
 
         /// <summary>
         /// The current length of the list
@@ -60,13 +68,16 @@ namespace LinkedList {
         /// </summary>
         /// <param name="values">Optional values to populate the list with</param>
         /// <param name="length">Optional max length</param>
-        public LinkedList(IEnumerable<T> values = null, int length = -1){
+        /// <param name="useSkipList">Whether to use a skip list for this list.</param>
+        public LinkedList(IEnumerable<T> values = null, int length = -1, bool useSkipList = false){
             _maxLength = length;
             if (values != null){
                 foreach (var value in values){
                     Append(value);
                 }
             }
+
+            UseSkiplist = useSkipList;
         }
 
         /// <summary>
@@ -98,8 +109,25 @@ namespace LinkedList {
             if (position==Length){
                 _tail = newNode;
             }
-
             _length++;
+            if (UseSkiplist && _skipList != null) {
+                if (position < (_skipList.Length * SKIPLIST_DENSITY)) {
+                    int startIndex = (position) / SKIPLIST_DENSITY;
+                    for (int i = startIndex; i < _skipList.Length; i++) {
+                        _skipList.Insert(GetNodeAt(i * SKIPLIST_DENSITY), i);
+                        _skipList.RemoveAt(i + 1);
+                    }
+                }
+                if (position != 0 && ((Length-1) % SKIPLIST_DENSITY) == 0){
+                    _skipList.Append(GetNodeAt(Length-1));
+                }
+            }
+            else{
+                if (position != 0 && ((Length-1) % SKIPLIST_DENSITY) == 0) {
+                    _skipList = new LinkedList<LinkedListNode<T>> { HeadNode };
+                    _skipList.Append(newNode);
+                }
+            }
         }
 
         /// <summary>
@@ -141,9 +169,23 @@ namespace LinkedList {
         /// <param name="index">The index</param>
         public void RemoveAt(int index){
             var node = GetNodeAt(index);
-            node.Previous.Next = node.Next;
+            if (index != 0){
+                node.Previous.Next = node.Next;
+            }
+            else{
+                HeadNode = node.Next;
+            }
             node.Next.Previous = node.Previous;
 
+            if (_skipList != null && index < (_skipList.Length * SKIPLIST_DENSITY)) {
+                int startIndex = (index) / SKIPLIST_DENSITY;
+                for (int i = startIndex + 1; i < _skipList.Length; i++) {
+                    _skipList.RemoveAt(i);
+                    if (i * SKIPLIST_DENSITY <= Length){
+                        _skipList.Insert(GetNodeAt(i*SKIPLIST_DENSITY), i);
+                    }
+                }
+            }
             _length--;
         }
 
@@ -203,11 +245,25 @@ namespace LinkedList {
         /// Returns the node at the specified index
         /// </summary>
         /// <param name="index">The index to retrieve</param>
+        /// <param name="skipList">Whether to use the skiplist to increase the speed, if possible. Usually desirable, but not if the skiplist is being updated.</param>
         /// <returns>The node</returns>
-        private LinkedListNode<T> GetNodeAt(int index){
-            if (index < Length / 2){
+        private LinkedListNode<T> GetNodeAt(int index, bool skipList = true){
+            if (index < 0 || index > Length) {
+                throw new IndexOutOfRangeException();
+            }
+
+            if ((UseSkiplist&&skipList) || index <= Length / 2){
                 var searchIndex = 0;
                 var searchNode = HeadNode;
+
+                if ((UseSkiplist&&skipList) && _skipList != null){
+                    int skipListIndex = 0;
+                    while (index > SKIPLIST_DENSITY){
+                        index -= SKIPLIST_DENSITY;
+                        skipListIndex++;
+                    }
+                    searchNode = _skipList[skipListIndex];
+                }
 
                 while (searchIndex < index){
                     searchNode = searchNode.Next;
@@ -225,7 +281,7 @@ namespace LinkedList {
                 }
                 return searchNode;
             }
-        } 
+        }
 
         /// <summary>
         /// Returns the class's enumerator
